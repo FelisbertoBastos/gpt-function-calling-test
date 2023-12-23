@@ -1,6 +1,6 @@
 import { ChatCompletionCreateParams } from 'openai/resources';
 
-export const weatherFunction: ChatCompletionCreateParams.Function = {
+export const weatherFunctionSpec: ChatCompletionCreateParams.Function = {
   name: 'clima',
   description: 'Busca o clima atual de uma cidade',
   parameters: {
@@ -8,7 +8,7 @@ export const weatherFunction: ChatCompletionCreateParams.Function = {
     properties: {
       city: {
         type: 'string',
-        description: 'A cidade',
+        description: 'Uma cidade válida',
       },
     },
     required: ['city'],
