@@ -18,7 +18,8 @@ export class GPT {
     {
       role: 'system',
       content:
-        'As chamadas da função de clima devem acontecer somente se o usuário fornecer uma cidade válida.',
+        'As chamadas da função de clima devem acontecer somente se o usuário fornecer uma cidade válida. ' +
+        'Se a API não conseguir encontrar a cidade, não tente chamar novamente.',
     },
   ];
 }

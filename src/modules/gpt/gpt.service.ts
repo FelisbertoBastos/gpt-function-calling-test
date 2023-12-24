@@ -1,10 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import OpenAI from 'openai';
-import {
-  ChatCompletionMessage,
-  ChatCompletionMessageParam,
-} from 'openai/resources';
+import { ChatCompletion, ChatCompletionMessageParam } from 'openai/resources';
 import { weatherFunctionSpec } from './functions/weather.function';
 import { WeatherService } from '../weather/weather.service';
 import { GPT } from '../../constants/gpt';
@@ -35,7 +32,8 @@ export class GptService {
       ...previousMessages,
     ];
 
-    const completionMessage = await this.getCompletionMessage(contextMessages);
+    const completionResponse = await this.getCompletionMessage(contextMessages);
+    const completionMessage = completionResponse.message;
 
     contextMessages.push(completionMessage);
 
@@ -43,7 +41,7 @@ export class GptService {
       case weatherFunctionSpec.name:
         return await this.handleWeatherRequest(
           userId,
-          completionMessage,
+          completionResponse,
           contextMessages,
         );
       default:
@@ -59,38 +57,53 @@ export class GptService {
       functions: [weatherFunctionSpec],
     });
 
-    return response.choices[0].message;
+    return response.choices[0];
   }
 
   private async handleWeatherRequest(
     userId: string,
-    message: ChatCompletionMessage,
+    completionResponse: ChatCompletion.Choice,
     contextMessages: ChatCompletionMessageParam[],
   ) {
-    console.log('Function Call: ' + weatherFunctionSpec.name);
+    const cities = [];
 
-    const { city } = JSON.parse(message.function_call.arguments);
+    do {
+      const { city } = JSON.parse(
+        completionResponse.message.function_call.arguments,
+      );
 
-    try {
-      const weather = await this.weatherService.getWeather(city);
+      if (cities.includes(city.toLowerCase())) break;
+      cities.push(city.toLowerCase());
 
-      contextMessages.push({
-        role: 'function',
-        name: weatherFunctionSpec.name,
-        content: JSON.stringify(weather),
-      });
-    } catch (error) {
-      contextMessages.push({
-        role: 'function',
-        name: weatherFunctionSpec.name,
-        content: error.response.data.message,
-      });
-    }
+      console.log(
+        `Function: ${weatherFunctionSpec.name}\nArgs: ${JSON.stringify({
+          city,
+        })}`,
+      );
 
-    const weatherGptResponse = await this.getCompletionMessage(contextMessages);
+      try {
+        const weather = await this.weatherService.getWeather(city);
+
+        contextMessages.push({
+          role: 'function',
+          name: weatherFunctionSpec.name,
+          content: JSON.stringify(weather),
+        });
+      } catch (error) {
+        contextMessages.push({
+          role: 'function',
+          name: weatherFunctionSpec.name,
+          content: error.response.data.message,
+        });
+      }
+
+      completionResponse = await this.getCompletionMessage(contextMessages);
+    } while (completionResponse.finish_reason !== 'stop');
+
+    const weatherGptResponse = completionResponse.message;
 
     await this.interactionsService.addMessage(userId, weatherGptResponse);
 
-    return weatherGptResponse.content;
+    return weatherGptResponse.content || '';
   }
 }
