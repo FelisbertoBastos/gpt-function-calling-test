@@ -6,6 +6,7 @@ import { weatherFunctionSpec } from './functions/weather.function';
 import { WeatherService } from '../weather/weather.service';
 import { GPT } from '../../constants/gpt';
 import { InteractionsService } from '../interactions/interactions.service';
+import { RecipientChatMessage } from '../../dtos/recipient-chat-message.dto';
 
 @Injectable()
 export class GptService {
@@ -21,11 +22,16 @@ export class GptService {
     });
   }
 
-  async getChatCompletions(userId: string, userMessage: string) {
-    const previousMessages = await this.interactionsService.addMessage(userId, {
+  async getChatCompletions(
+    userId: string,
+    userMessage: string,
+  ): Promise<RecipientChatMessage> {
+    await this.interactionsService.addMessage(userId, {
       role: 'user',
       content: userMessage,
     });
+
+    const previousMessages = await this.interactionsService.getMessages(userId);
 
     const contextMessages: ChatCompletionMessageParam[] = [
       ...GPT.SYSTEM_INTRO_COMMANDS,
@@ -37,17 +43,23 @@ export class GptService {
 
     contextMessages.push(completionMessage);
 
+    const result = new RecipientChatMessage();
+
     switch (completionMessage.function_call?.name) {
       case weatherFunctionSpec.name:
-        return await this.handleWeatherRequest(
+        result.message = await this.handleWeatherRequest(
           userId,
           completionResponse,
           contextMessages,
         );
+        break;
       default:
         await this.interactionsService.addMessage(userId, completionMessage);
-        return completionMessage.content;
+        result.message = completionMessage.content;
+        break;
     }
+
+    return result;
   }
 
   private async getCompletionMessage(messages: ChatCompletionMessageParam[]) {

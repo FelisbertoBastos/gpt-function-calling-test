@@ -1,11 +1,10 @@
 import { Module, ValidationPipe } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
 import { GptModule } from './modules/gpt/gpt.module';
 import { APP_PIPE } from '@nestjs/core';
 import { InteractionsModule } from './modules/interactions/interactions.module';
+import { ChatModule } from './modules/chat/chat.module';
 
 @Module({
   imports: [
@@ -23,10 +22,9 @@ import { InteractionsModule } from './modules/interactions/interactions.module';
     }),
     GptModule,
     InteractionsModule,
+    ChatModule,
   ],
-  controllers: [AppController],
   providers: [
-    AppService,
     { provide: APP_PIPE, useValue: new ValidationPipe({ whitelist: true }) },
   ],
 })

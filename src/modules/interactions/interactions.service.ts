@@ -12,23 +12,23 @@ export class InteractionsService {
     private readonly interactionModel: Model<Interaction>,
   ) {}
 
-  async addMessage(userId: string, message: MessageDTO): Promise<MessageDTO[]> {
-    const interaction = await this.interactionModel
-      .findOneAndUpdate(
-        { userId },
-        { $push: { messages: message } },
-        { upsert: true, new: true },
-      )
-      .select({ messages: { $slice: -Math.abs(GPT.CONTEXT_SIZE) } });
+  async addMessage(userId: string, message: MessageDTO): Promise<boolean> {
+    const interaction = await this.interactionModel.updateOne(
+      { userId },
+      { $push: { messages: message } },
+      { upsert: true, new: true },
+    );
 
-    return interaction.messages.map((message) => ({
-      role: message.role,
-      content: message.content,
-    }));
+    return interaction.acknowledged;
   }
 
-  async getMessages(userId: string): Promise<MessageDTO[]> {
-    const interaction = await this.interactionModel.findOne({ userId });
+  async getMessages(
+    userId: string,
+    limit: number = GPT.CONTEXT_SIZE,
+  ): Promise<MessageDTO[]> {
+    const interaction = await this.interactionModel
+      .findOne({ userId })
+      .select({ messages: { $slice: -Math.abs(limit) } });
 
     return interaction
       ? interaction.messages.map((message) => ({
